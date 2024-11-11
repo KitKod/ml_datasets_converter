@@ -1,6 +1,7 @@
 import json
 import os
 import argparse
+import shutil
 from tqdm import tqdm
 from xmltodict import unparse
 
@@ -71,20 +72,37 @@ def base_object(size_info, name, bbox):
 
 
 sets = {
-    "trainval": os.path.join(src_base, "train/_annotations.coco.json"),
-    "test": os.path.join(src_base, "test/_annotations.coco.json"),
+    "trainval": {
+        "ann_file": os.path.join(src_base, "train/_annotations.coco.json"),
+        "img_dir": os.path.join(src_base, "train"),
+    },
+    "test": {
+        "ann_file": os.path.join(src_base, "test/_annotations.coco.json"),
+        "img_dir": os.path.join(src_base, "test"),
+    },
 }
 
-cate = {x["id"]: x["name"] for x in json.load(open(sets["test"]))["categories"]}
+cate = {
+    x["id"]: x["name"] for x in json.load(open(sets["test"]["ann_file"]))["categories"]
+}
 
-for stage, filename in sets.items():
-    print("Parse", filename)
-    data = json.load(open(filename))
+for stage, filenames in sets.items():
+    ann_file = filenames["ann_file"]
+    img_dir = filenames["img_dir"]
+    print("Parse", ann_file)
+    data = json.load(open(ann_file))
 
     images = {}
     for im in tqdm(data["images"], "Parse Images"):
         img = base_dict(im["file_name"], im["width"], im["height"], 3)
         images[im["id"]] = img
+
+        # Copy image to JPEGImages folder
+        # for coco_image_folder in ["train", "val", "test"]:
+        src_image_path = os.path.join(src_base, img_dir, im["file_name"])
+        dst_image_path = os.path.join(dst_dirs["JPEGImages"], im["file_name"])
+        if not os.path.exists(dst_image_path):
+            shutil.copy2(src_image_path, dst_image_path)
 
     for an in tqdm(data["annotations"], "Parse Annotations"):
         ann = base_object(
