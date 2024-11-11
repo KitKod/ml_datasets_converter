@@ -1,7 +1,6 @@
 import json
 import os
 import argparse
-
 from tqdm import tqdm
 from xmltodict import unparse
 
@@ -10,8 +9,19 @@ from xmltodict import unparse
 # To keep 0-based, set it to 0. To convert to 1-based, set it to 1.
 BBOX_OFFSET = 1
 
-src_base = os.path.join("/Users/mykyta/Projects/DL/Datasets", "CatchDrone22.v3i.coco")
-dst_base = os.path.join("data", "VOCdevkitCOCO", "VOCCOCO")
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Convert COCO dataset to VOC format.")
+    parser.add_argument("--src", required=True, help="Path to the COCO dataset.")
+    parser.add_argument(
+        "--dst", required=True, help="Path to the output VOC format directory."
+    )
+    return parser.parse_args()
+
+
+args = parse_args()
+src_base = args.src
+dst_base = args.dst
 
 dst_dirs = {
     x: os.path.join(dst_base, x) for x in ["Annotations", "ImageSets", "JPEGImages"]
