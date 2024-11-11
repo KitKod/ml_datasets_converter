@@ -21,7 +21,7 @@ def parse_args():
 
 args = parse_args()
 src_base = args.src
-dst_base = args.dst
+dst_base = os.path.join("out", "VOCdevkit", "VOC2012", args.dst)
 
 dst_dirs = {
     x: os.path.join(dst_base, x) for x in ["Annotations", "ImageSets", "JPEGImages"]
@@ -35,9 +35,9 @@ def base_dict(filename, width, height, depth=3):
     return {
         "annotation": {
             "filename": os.path.split(filename)[-1],
-            "folder": "VOCCOCO",
+            "folder": "VOC2012",
             "segmented": "0",
-            "owner": {"name": "unknown"},
+            "owner": {"name": "Mykyta Kamak"},
             "source": {
                 "database": "The COCO 2017 database",
                 "annotation": "COCO 2017",
@@ -64,7 +64,7 @@ def base_object(size_info, name, bbox):
     return {
         "name": name,
         "pose": "Unspecified",
-        "truncated": "0",
+        "truncated": BBOX_OFFSET,
         "difficult": "0",
         "bndbox": {"xmin": x1, "ymin": y1, "xmax": x2, "ymax": y2},
     }
