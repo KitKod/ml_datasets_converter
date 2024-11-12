@@ -82,52 +82,67 @@ sets = {
     },
 }
 
+# Load categories from the training annotations (assuming categories are the same)
 cate = {
-    x["id"]: x["name"] for x in json.load(open(sets["test"]["ann_file"]))["categories"]
+    x["id"]: x["name"]
+    for x in json.load(open(sets["trainval"]["ann_file"]))["categories"]
 }
+
+# Initialize a global image ID counter and mapping
+next_image_id = 1
+id_mapping = {}  # Maps original image IDs to new unique IDs
 
 for stage, filenames in sets.items():
     ann_file = filenames["ann_file"]
     img_dir = filenames["img_dir"]
-    print("Parse", ann_file)
+    print("===> Parse", ann_file)
     data = json.load(open(ann_file))
 
     images = {}
-    for im in tqdm(data["images"], "Parse Images"):
-        img = base_dict(im["file_name"], im["width"], im["height"], 3)
-        images[im["id"]] = img
+    for im in tqdm(data["images"], desc=f"-> Parse Images ({stage})"):
+        # Assign new unique ID
+        original_id = im["id"]
+        new_id = next_image_id
+        next_image_id += 1
+        id_mapping[original_id] = new_id
 
-        # Copy image to JPEGImages folder
-        # for coco_image_folder in ["train", "val", "test"]:
-        src_image_path = os.path.join(src_base, img_dir, im["file_name"])
-        dst_image_path = os.path.join(dst_dirs["JPEGImages"], im["file_name"])
+        # Update filename to match new ID
+        new_filename = f"{str(new_id).zfill(12)}.jpg"
+        img = base_dict(new_filename, im["width"], im["height"], 3)
+        images[new_id] = img
+
+        # Copy image to JPEGImages folder with new filename
+        src_image_path = os.path.join(img_dir, im["file_name"])
+        dst_image_path = os.path.join(dst_dirs["JPEGImages"], new_filename)
         if not os.path.exists(dst_image_path):
             shutil.copy2(src_image_path, dst_image_path)
 
-    for an in tqdm(data["annotations"], "Parse Annotations"):
+    for an in tqdm(data["annotations"], desc=f"-> Parse Annotations ({stage})"):
+        # Get the new image ID
+        new_image_id = id_mapping[an["image_id"]]
         ann = base_object(
-            images[an["image_id"]]["annotation"]["size"],
+            images[new_image_id]["annotation"]["size"],
             cate[an["category_id"]],
             an["bbox"],
         )
-        images[an["image_id"]]["annotation"]["object"].append(ann)
+        images[new_image_id]["annotation"]["object"].append(ann)
 
-    for k, im in tqdm(images.items(), "Write Annotations"):
+    # Write Annotations to XML files for each image
+    for k, im in tqdm(images.items(), desc=f"-> Write Annotations ({stage})"):
         im["annotation"]["object"] = im["annotation"]["object"] or [None]
         unparse(
             im,
             open(
-                os.path.join(
-                    dst_dirs["Annotations"], "{}.xml".format(str(k).zfill(12))
-                ),
+                os.path.join(dst_dirs["Annotations"], f"{str(k).zfill(12)}.xml"),
                 "w",
             ),
             full_document=False,
             pretty=True,
         )
 
-    print("Write image sets")
-    with open(os.path.join(dst_dirs["ImageSets"], "{}.txt".format(stage)), "w") as f:
-        f.writelines(list(map(lambda x: str(x).zfill(12) + "\n", images.keys())))
+    # Generate separate txt files for trainval and test sets
+    print(f"-> Write image sets for {stage}")
+    with open(os.path.join(dst_dirs["ImageSets"], f"{stage}.txt"), "w") as f:
+        f.writelines([f"{str(k).zfill(12)}\n" for k in images.keys()])
 
-    print("OK")
+print("Conversion Complete")
